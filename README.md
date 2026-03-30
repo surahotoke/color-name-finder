@@ -6,5 +6,8 @@
 - HEX
 - input:color
 
+## ページ
+https://surahotoke.github.io/color-name-finder/
+
 ---
 Claude Codeと作成

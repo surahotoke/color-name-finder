@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Name Finder</title>
+  <!-- Built with Claude Code. -->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: whitesmoke;
+      color: dimgray;
+      padding: 24px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+    }
+    .input-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    input[type="color"] {
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+    input[type="color"]::-webkit-color-swatch { border: 1px solid lightgray; border-radius: 6px; }
+    #hexInput {
+      font-family: monospace;
+      font-size: 1.2rem;
+      padding: 10px 14px;
+      border: 2px solid gainsboro;
+      border-radius: 8px;
+      width: 140px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #hexInput:focus { border-color: gray; }
+    .preview {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      border: 1px solid lightgray;
+      flex-shrink: 0;
+    }
+    .results-grid {
+      display: grid;
+      gap: 16px;
+    }
+    .metric-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .metric-card h2 {
+      font-size: 0.85rem;
+      color: gray;
+      margin-bottom: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .result-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+    }
+    .result-item + .result-item {
+      border-top: 1px solid whitesmoke;
+    }
+    .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      border: 1px solid gainsboro;
+      flex-shrink: 0;
+    }
+    .result-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+    .color-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .color-meta {
+      font-size: 0.75rem;
+      color: darkgray;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Color Name Finder</h1>
+  <div class="input-section">
+    <input type="color" id="colorPicker">
+    <input type="text" id="hexInput" maxlength="7" spellcheck="false" placeholder="#000000">
+    <div class="preview" id="preview"></div>
+  </div>
+  <div class="results-grid">
+    <div class="metric-card">
+      <h2>OKLab</h2>
+      <div class="result-list" id="oklab-results"></div>
+    </div>
+  </div>
+
+  <template id="color-result-template">
+    <div class="result-item">
+      <div class="swatch"></div>
+      <div class="result-info">
+        <span class="color-name"></span>
+        <span class="color-meta"></span>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const CSS_NAMED_COLORS = {
+      aliceblue:"#f0f8ff",antiquewhite:"#faebd7",aqua:"#00ffff",aquamarine:"#7fffd4",
+      azure:"#f0ffff",beige:"#f5f5dc",bisque:"#ffe4c4",black:"#000000",
+      blanchedalmond:"#ffebcd",blue:"#0000ff",blueviolet:"#8a2be2",brown:"#a52a2a",
+      burlywood:"#deb887",cadetblue:"#5f9ea0",chartreuse:"#7fff00",chocolate:"#d2691e",
+      coral:"#ff7f50",cornflowerblue:"#6495ed",cornsilk:"#fff8dc",crimson:"#dc143c",
+      darkblue:"#00008b",darkcyan:"#008b8b",darkgoldenrod:"#b8860b",
+      darkgray:"#a9a9a9",darkgreen:"#006400",darkkhaki:"#bdb76b",
+      darkmagenta:"#8b008b",darkolivegreen:"#556b2f",darkorange:"#ff8c00",darkorchid:"#9932cc",
+      darkred:"#8b0000",darksalmon:"#e9967a",darkseagreen:"#8fbc8f",darkslateblue:"#483d8b",
+      darkslategray:"#2f4f4f",darkturquoise:"#00ced1",darkviolet:"#9400d3",
+      deeppink:"#ff1493",deepskyblue:"#00bfff",dimgray:"#696969",
+      dodgerblue:"#1e90ff",firebrick:"#b22222",floralwhite:"#fffaf0",forestgreen:"#228b22",
+      fuchsia:"#ff00ff",gainsboro:"#dcdcdc",ghostwhite:"#f8f8ff",gold:"#ffd700",
+      goldenrod:"#daa520",gray:"#808080",green:"#008000",greenyellow:"#adff2f",
+      honeydew:"#f0fff0",hotpink:"#ff69b4",indianred:"#cd5c5c",
+      indigo:"#4b0082",ivory:"#fffff0",khaki:"#f0e68c",lavender:"#e6e6fa",
+      lavenderblush:"#fff0f5",lawngreen:"#7cfc00",lemonchiffon:"#fffacd",lightblue:"#add8e6",
+      lightcoral:"#f08080",lightcyan:"#e0ffff",lightgoldenrodyellow:"#fafad2",lightgray:"#d3d3d3",
+      lightgreen:"#90ee90",lightpink:"#ffb6c1",lightsalmon:"#ffa07a",
+      lightseagreen:"#20b2aa",lightskyblue:"#87cefa",lightslategray:"#778899",
+      lightsteelblue:"#b0c4de",lightyellow:"#ffffe0",lime:"#00ff00",limegreen:"#32cd32",
+      linen:"#faf0e6",maroon:"#800000",mediumaquamarine:"#66cdaa",
+      mediumblue:"#0000cd",mediumorchid:"#ba55d3",mediumpurple:"#9370db",mediumseagreen:"#3cb371",
+      mediumslateblue:"#7b68ee",mediumspringgreen:"#00fa9a",mediumturquoise:"#48d1cc",mediumvioletred:"#c71585",
+      midnightblue:"#191970",mintcream:"#f5fffa",mistyrose:"#ffe4e1",moccasin:"#ffe4b5",
+      navajowhite:"#ffdead",navy:"#000080",oldlace:"#fdf5e6",olive:"#808000",
+      olivedrab:"#6b8e23",orange:"#ffa500",orangered:"#ff4500",orchid:"#da70d6",
+      palegoldenrod:"#eee8aa",palegreen:"#98fb98",paleturquoise:"#afeeee",palevioletred:"#db7093",
+      papayawhip:"#ffefd5",peachpuff:"#ffdab9",peru:"#cd853f",pink:"#ffc0cb",
+      plum:"#dda0dd",powderblue:"#b0e0e6",purple:"#800080",rebeccapurple:"#663399",
+      red:"#ff0000",rosybrown:"#bc8f8f",royalblue:"#4169e1",saddlebrown:"#8b4513",
+      salmon:"#fa8072",sandybrown:"#f4a460",seagreen:"#2e8b57",seashell:"#fff5ee",
+      sienna:"#a0522d",silver:"#c0c0c0",skyblue:"#87ceeb",slateblue:"#6a5acd",
+      slategray:"#708090",snow:"#fffafa",springgreen:"#00ff7f",
+      steelblue:"#4682b4",tan:"#d2b48c",teal:"#008080",thistle:"#d8bfd8",
+      tomato:"#ff6347",turquoise:"#40e0d0",violet:"#ee82ee",wheat:"#f5deb3",
+      white:"#ffffff",whitesmoke:"#f5f5f5",yellow:"#ffff00",yellowgreen:"#9acd32"
+    }
+
+    // --- Color conversions ---
+    function parseHex(hex) {
+      hex = hex.replace(/^#/, "")
+      if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2]
+      const n = parseInt(hex, 16)
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+    }
+
+    function rgbToSrgb({r, g, b}) { return { r: r / 255, g: g / 255, b: b / 255 } }
+    function srgbToLinear(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
+
+    function srgbToOklab({r, g, b}) {
+      const lr = srgbToLinear(r), lg = srgbToLinear(g), lb = srgbToLinear(b)
+      const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
+      const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
+      const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
+      return {
+        L: 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+        a: 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+        b: 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+      }
+    }
+
+    function distOklab(a, b) { return Math.sqrt((a.L-b.L)**2 + (a.a-b.a)**2 + (a.b-b.b)**2) }
+
+    // --- Precompute ---
+    const colorData = Object.entries(CSS_NAMED_COLORS).map(([name, hex]) => {
+      const rgb = parseHex(hex)
+      const srgb = rgbToSrgb(rgb)
+      const oklab = srgbToOklab(srgb)
+      return { name, hex, rgb, oklab }
+    })
+
+    // --- UI Logic ---
+    const hexInput = document.getElementById("hexInput")
+    const colorPicker = document.getElementById("colorPicker")
+    const preview = document.getElementById("preview")
+    const resultsContainer = document.getElementById("oklab-results")
+    const template = document.getElementById("color-result-template")
+
+    /**
+     * templateを使って結果を描画する
+     */
+    function renderResults(container, results) {
+      
+      const fragment = document.createDocumentFragment()
+
+      results.forEach(({name, hex, dist}) => {
+        // テンプレートを複製
+        const clone = template.content.cloneNode(true)
+        
+        // 要素を特定して値をセット
+        clone.querySelector(".swatch").style.backgroundColor = hex
+        clone.querySelector(".color-name").textContent = name
+        clone.querySelector(".color-meta").textContent = `${hex} — d=${dist.toFixed(2)}`
+        
+        fragment.appendChild(clone)
+      })
+
+      container.replaceChildren(fragment)
+    }
+
+    function topN(arr, n) {
+      return arr.slice().sort((a, b) => a.dist - b.dist).slice(0, n)
+    }
+
+    function update() {
+      let val = hexInput.value.trim()
+      if (!val.startsWith("#")) val = "#" + val
+      if (!/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(val)) return
+
+      const rgb = parseHex(val)
+      const srgb = rgbToSrgb(rgb)
+      const oklab = srgbToOklab(srgb)
+
+      const fullHex = `#${rgb.r.toString(16).padStart(2,"0")}${rgb.g.toString(16).padStart(2,"0")}${rgb.b.toString(16).padStart(2,"0")}`
+      preview.style.background = fullHex
+      colorPicker.value = fullHex
+
+      const oklabDists = colorData.map(c => ({...c, dist: distOklab(oklab, c.oklab)}))
+      renderResults(resultsContainer, topN(oklabDists, 5))
+    }
+
+    hexInput.addEventListener("input", update)
+    colorPicker.addEventListener("input", e => {
+      hexInput.value = e.target.value
+      update()
+    })
+
+    update()
+  </script>
+</body>
+</html>
